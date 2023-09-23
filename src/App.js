@@ -4,12 +4,16 @@ import axios from "axios";
 import Main from "./components/Main";
 import StartScreen from "./components/StartScreen";
 import Questions from "./components/Questions";
+import NextButton from "./components/NextButton";
+import ProgressBar from "./components/ProgressBar";
+import FinishScreen from "./components/FinishScreen";
 
 let initialState = {
   questions: [],
   status: "loading",
   index: 0,
   answer: null,
+  points: 0,
 };
 
 function reducer(state, action) {
@@ -21,9 +25,31 @@ function reducer(state, action) {
     case "START":
       return { ...state, status: "active" };
     case "NEW_ANSWER":
+      const question = state.questions.at(state.index);
       return {
         ...state,
         answer: action.payload,
+        points:
+          action.payload === question.correctOption
+            ? state.points + question.points
+            : state.points,
+      };
+    case "NEXT":
+      return {
+        ...state,
+        index: state.index + 1,
+        answer: null,
+      };
+    case "FINISH":
+      return {
+        ...state,
+        status: "finish",
+      };
+    case "RESET":
+      return {
+        ...initialState,
+        question: state.questions,
+        status: "ready",
       };
     default:
       break;
@@ -33,8 +59,10 @@ function reducer(state, action) {
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const { status, questions, index, answer } = state;
-  console.log(answer);
+  const { status, questions, index, answer, points } = state;
+
+  const totalPoints = questions.reduce((acc, curr) => acc + curr.points, 0);
+
   const getData = async () => {
     try {
       const data = await axios.get("http://localhost:8000/questions");
@@ -48,8 +76,8 @@ function App() {
   useEffect(() => {
     getData();
   }, []);
+  const noOfQuestions = questions?.length;
 
-  const noOfQuestions = questions.length;
   return (
     <div>
       <Main>
@@ -60,12 +88,32 @@ function App() {
         )}
         {status === "active" && (
           <>
+            <ProgressBar
+              index={index}
+              noOfQuestions={noOfQuestions}
+              points={points}
+              totalPoints={totalPoints}
+            />
             <Questions
               question={questions[index]}
               dispatch={dispatch}
               answer={answer}
             />
+            <NextButton
+              dispatch={dispatch}
+              answer={answer}
+              index={index}
+              noOfQuestions={noOfQuestions}
+            />
           </>
+        )}
+        {status === "finish" && (
+          <FinishScreen
+            points={points}
+            noOfQuestions={noOfQuestions}
+            totalPoints={totalPoints}
+            dispatch={dispatch}
+          />
         )}
       </Main>
     </div>
